@@ -26,7 +26,7 @@ Run application with docker compose
 ```
 docker compose up --build
 
-docker compose up --down
+docker compose kill -s SIGINT
 ```
 
 The application can also be run with Maven using:
