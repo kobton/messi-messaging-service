@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.message.messi.dto.MessageRequest;
 import com.message.messi.exception.InvalidInputException;
 import com.message.messi.exception.InvalidRangeException;
 import com.message.messi.listener.MessageReceiver;
@@ -33,7 +34,7 @@ public class MessageController {
     private MessageReceiver messageReceiver;
 
     @PostMapping("/send")
-    public ResponseEntity<String> sendMessage(@Valid @RequestBody Message message) {
+    public ResponseEntity<String> sendMessage(@Valid @RequestBody MessageRequest message) {
         if (message.getSenderName() == null || message.getContent() == null || message.getRecipientName() == null) {
             throw new InvalidInputException("Sender and content must not be null");
         }

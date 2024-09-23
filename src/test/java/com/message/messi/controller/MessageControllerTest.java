@@ -27,8 +27,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.message.messi.dto.MessageRequest;
 import com.message.messi.exception.GlobalExceptionHandler;
 import com.message.messi.exception.InvalidRangeException;
 import com.message.messi.exception.MessageNotFoundException;
@@ -38,121 +40,127 @@ import com.message.messi.service.MessageSender;
 
 public class MessageControllerTest {
 
-    private MockMvc mockMvc;
+        private MockMvc mockMvc;
 
-    @Mock
-    private MessageSender messageSender;
+        @Mock
+        private MessageSender messageSender;
 
-    @Mock
-    private MessageReceiver messageReceiver;
+        @Mock
+        private MessageReceiver messageReceiver;
 
-    @InjectMocks
-    private MessageController messageController;
+        @InjectMocks
+        private MessageController messageController;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+        private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-        mockMvc = MockMvcBuilders.standaloneSetup(messageController).setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
+        @BeforeEach
+        void setUp() {
+                MockitoAnnotations.openMocks(this);
+                mockMvc = MockMvcBuilders.standaloneSetup(messageController)
+                                .setControllerAdvice(new GlobalExceptionHandler())
+                                .build();
+        }
 
-    @Test
-    void testSendMessage() throws Exception {
+        @Test
+        void testSendMessage() throws Exception {
 
-        Message request = new Message("Jakob", "Kajsa", "Hello there");
+                MessageRequest request = new MessageRequest("Jakob", "Kajsa", "Hello there");
 
-        mockMvc.perform(post("/api/messages/send")
-                .contentType(APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Message sent successfully"));
+                mockMvc.perform(post("/api/messages/send")
+                                .contentType(APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string("Message sent successfully"));
 
-        verify(messageSender, times(1)).sendMessage(any(Message.class));
-    }
+                verify(messageSender, times(1)).sendMessage(any(MessageRequest.class));
+        }
 
-    @Test
-    void testGetReceivedMessages() throws Exception {
-        Message message1 = new Message("Jakob", "Kajsa", "Message 1");
-        Message message2 = new Message("Kajsa", "Jakob", "Message 2");
-        when(messageReceiver.getReceivedMessages()).thenReturn(Arrays.asList(message1, message2));
+        @Test
+        void testGetReceivedMessages() throws Exception {
+                Message message1 = new Message(Long.valueOf(1), "Jakob", "Kajsa", "Message 1", LocalDateTime.now());
+                Message message2 = new Message(Long.valueOf(2), "Kajsa", "Jakob", "Message 2", LocalDateTime.now());
 
-        mockMvc.perform(get("/api/messages/received"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].senderName").value("Jakob"))
-                .andExpect(jsonPath("$[1].senderName").value("Kajsa"));
+                when(messageReceiver.getReceivedMessages()).thenReturn(Arrays.asList(message1,
+                                message2));
 
-        verify(messageReceiver, times(1)).getReceivedMessages();
-    }
+                mockMvc.perform(get("/api/messages/received"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$[0].senderName").value("Jakob"))
+                                .andExpect(jsonPath("$[1].senderName").value("Kajsa"));
 
-    @Test
-    void testDeleteMessagesByRange() throws Exception {
-        when(messageReceiver.deleteMessagesByRange(0, 1)).thenReturn(true);
+                verify(messageReceiver, times(1)).getReceivedMessages();
+        }
 
-        mockMvc.perform(delete("/api/messages/delete/range")
-                .param("start", "0")
-                .param("stop", "1"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Messages from index 0 to 1 deleted."));
+        @Test
+        void testDeleteMessagesByRange() throws Exception {
+                when(messageReceiver.deleteMessagesByRange(0, 1)).thenReturn(true);
 
-        verify(messageReceiver, times(1)).deleteMessagesByRange(0, 1);
-    }
+                mockMvc.perform(delete("/api/messages/delete/range")
+                                .param("start", "0")
+                                .param("stop", "1"))
+                                .andExpect(status().isOk())
+                                .andExpect(content().string("Messages from index 0 to 1 deleted."));
 
-    @Test
-    void testDeleteMessageByIndex_NotFound() throws Exception {
-        doThrow(new MessageNotFoundException("Message not found at index: 2")).when(messageReceiver)
-                .deleteMessageByIndex(2);
+                verify(messageReceiver, times(1)).deleteMessagesByRange(0, 1);
+        }
 
-        mockMvc.perform(delete("/api/messages/delete/2"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Message not found at index: 2"));
+        @Test
+        void testDeleteMessageByIndex_NotFound() throws Exception {
 
-        verify(messageReceiver, times(1)).deleteMessageByIndex(2);
-    }
+                doThrow(new MessageNotFoundException("Message not found at index: 2")).when(messageReceiver)
+                                .deleteMessageByIndex(2);
 
-    @Test
-    void testDeleteMessagesByRange_InvalidRange() throws Exception {
-        doThrow(new InvalidRangeException("Invalid range: start=10, stop=0")).when(messageReceiver)
-                .deleteMessagesByRange(10, 0);
+                mockMvc.perform(delete("/api/messages/delete/2"))
+                                .andExpect(status().isNotFound())
+                                .andExpect(jsonPath("$.message").value("Message not found at index: 2"));
 
-        mockMvc.perform(delete("/api/messages/delete/range")
-                .param("start", "10")
-                .param("stop", "0"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Invalid range: start=10, stop=0"));
+                verify(messageReceiver, times(1)).deleteMessageByIndex(2);
+        }
 
-        verify(messageReceiver, times(1)).deleteMessagesByRange(10, 0);
-    }
+        @Test
+        void testDeleteMessagesByRange_InvalidRange() throws Exception {
+                doThrow(new InvalidRangeException("Invalid range: start=10, stop=0")).when(messageReceiver)
+                                .deleteMessagesByRange(10, 0);
 
-    @Test
-    public void getMessagesForRecipient_validRecipient_shouldReturnMessages() throws Exception {
-        List<Message> mockMessages = Arrays.asList(
-                new Message("Jakob", "Kajsa", "Hello Kajsa"),
-                new Message("Mattias", "Kajsa", "Message for Kajsa"));
+                mockMvc.perform(delete("/api/messages/delete/range")
+                                .param("start", "10")
+                                .param("stop", "0"))
+                                .andExpect(status().isBadRequest())
+                                .andExpect(jsonPath("$.message").value("Invalid range: start=10, stop=0"));
 
-        Mockito.when(messageReceiver.getMessagesForRecipient(anyString())).thenReturn(mockMessages);
+                verify(messageReceiver, times(1)).deleteMessagesByRange(10, 0);
+        }
 
-        mockMvc.perform(get("/api/messages/received/recipient")
-                .param("name", "Kajsa")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].senderName", is("Jakob")))
-                .andExpect(jsonPath("$[0].recipientName", is("Kajsa")))
-                .andExpect(jsonPath("$[0].content", is("Hello Kajsa")))
-                .andExpect(jsonPath("$[1].senderName", is("Mattias")))
-                .andExpect(jsonPath("$[1].recipientName", is("Kajsa")))
-                .andExpect(jsonPath("$[1].content", is("Message for Kajsa")));
-    }
+        @Test
+        public void getMessagesForRecipient_validRecipient_shouldReturnMessages()
+                        throws Exception {
+                List<Message> mockMessages = Arrays.asList(
+                                new Message(Long.valueOf(1), "Jakob", "Kajsa", "Hello Kajsa", LocalDateTime.now()),
+                                new Message(Long.valueOf(1), "Mattias", "Kajsa", "Message for Kajsa",
+                                                LocalDateTime.now()));
 
-    @Test
-    public void getMessagesForRecipient_noMessagesFound_shouldReturn204() throws Exception {
-        Mockito.when(messageReceiver.getMessagesForRecipient(anyString())).thenReturn(List.of());
+                Mockito.when(messageReceiver.getMessagesForRecipient(anyString())).thenReturn(mockMessages);
 
-        mockMvc.perform(get("/api/messages/received/recipient")
-                .param("name", "UnknownRecipient")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNoContent());
-    }
+                mockMvc.perform(get("/api/messages/received/recipient")
+                                .param("name", "Kajsa")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$", hasSize(2)))
+                                .andExpect(jsonPath("$[0].senderName", is("Jakob")))
+                                .andExpect(jsonPath("$[0].recipientName", is("Kajsa")))
+                                .andExpect(jsonPath("$[0].content", is("Hello Kajsa")))
+                                .andExpect(jsonPath("$[1].senderName", is("Mattias")))
+                                .andExpect(jsonPath("$[1].recipientName", is("Kajsa")))
+                                .andExpect(jsonPath("$[1].content", is("Message for Kajsa")));
+        }
+
+        @Test
+        public void getMessagesForRecipient_noMessagesFound_shouldReturn204() throws Exception {
+                Mockito.when(messageReceiver.getMessagesForRecipient(anyString())).thenReturn(List.of());
+
+                mockMvc.perform(get("/api/messages/received/recipient")
+                                .param("name", "UnknownRecipient")
+                                .contentType(MediaType.APPLICATION_JSON))
+                                .andExpect(status().isNoContent());
+        }
 }

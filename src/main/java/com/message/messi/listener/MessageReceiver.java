@@ -1,30 +1,50 @@
 package com.message.messi.listener;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.message.messi.dto.MessageRequest;
 import com.message.messi.exception.InvalidRangeException;
 import com.message.messi.exception.MessageNotFoundException;
 import com.message.messi.model.Message;
+import com.message.messi.repository.MessageRepository;
 
 @Component
 public class MessageReceiver {
 
     private List<Message> receivedMessages = new ArrayList<>();
 
+    @Autowired
+    MessageRepository messageRepository;
+
     @RabbitListener(queues = "messageQueue")
-    public void receiveMessage(Message message) {
+    public void receiveMessage(MessageRequest messageRequest) {
+
+        Message message = new Message();
+
+        message.setContent(messageRequest.getContent());
+        message.setRecipientName(messageRequest.getRecipientName());
+        message.setSenderName(messageRequest.getSenderName());
+        message.setTimestamp(LocalDateTime.now());
         receivedMessages.add(message);
-        System.out.println("Received message: " + message.getContent() + " from sender " + message.getSenderName()
-                + " to recipient " + message.getRecipientName());
+        System.out.println(
+                "Received message: " + messageRequest.getContent() + " from sender " + messageRequest.getSenderName()
+                        + " to recipient " + messageRequest.getRecipientName());
+
+        messageRepository.save(message);
     }
 
     public List<Message> getReceivedMessages() {
-        return receivedMessages;
+
+        List<Message> messages;
+
+        return messageRepository.findAll();
     }
 
     public List<Message> getMessagesForRecipient(String recipientName) {

@@ -1,22 +1,35 @@
 package com.message.messi.model;
 
-import jakarta.validation.constraints.NotBlank;
+import java.time.LocalDateTime;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@Entity
+@Data
+@NoArgsConstructor
 @AllArgsConstructor
 public class Message {
 
-    @NotBlank(message = "Sender name cannot be null or empty")
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     private String senderName;
 
-    @NotBlank(message = "Sender name cannot be null or empty")
     private String recipientName;
 
-    @NotBlank(message = "Message content cannot be null or empty")
     private String content;
+
+    private LocalDateTime timestamp;
 
 }
